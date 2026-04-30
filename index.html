@@ -186,6 +186,15 @@ body { font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; backgr
 .w-chip:hover { background: rgba(255,255,255,0.14); color: white; transform: translateY(-1px); }
 .w-ts { font-family: 'Space Mono',monospace; font-size: 10px; color: rgba(255,255,255,0.22); margin-top: 12px; }
 
+/* ── LIVE CLOCK ── */
+.live-clock { position: absolute; top: 20px; right: 28px; z-index: 20; text-align: right; pointer-events: none; }
+.clock-time { font-family: 'Space Mono',monospace; font-size: 28px; font-weight: 700; color: rgba(255,255,255,0.9); letter-spacing: 2px; text-shadow: 0 0 20px rgba(180,200,255,0.3); line-height: 1; }
+.clock-seconds { font-size: 16px; color: rgba(255,255,255,0.45); font-weight: 400; }
+.clock-date { font-family: 'Space Mono',monospace; font-size: 10px; color: rgba(255,255,255,0.35); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
+.clock-version { font-family: 'Space Mono',monospace; font-size: 9px; color: rgba(255,255,255,0.2); letter-spacing: 0.1em; margin-top: 3px; }
+.clock-dot { display: inline-block; width: 6px; height: 6px; background: #4ade80; border-radius: 50%; margin-right: 5px; box-shadow: 0 0 6px #4ade80; animation: livePulse 1s ease-in-out infinite; vertical-align: middle; }
+@keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+
 .w-loading { display: flex; align-items: center; justify-content: center; padding: 80px; flex-direction: column; gap: 16px; }
 .spinner { width: 36px; height: 36px; border: 2px solid rgba(255,255,255,0.15); border-top-color: rgba(255,255,255,0.7); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to{transform:rotate(360deg)} }
@@ -285,6 +294,13 @@ body { font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; backgr
   </div>
 
   <div class="weather-content">
+    <!-- Live Clock -->
+    <div class="live-clock">
+      <div class="clock-time" id="clockTime">00<span class="clock-seconds">:00</span></div>
+      <div class="clock-date" id="clockDate"></div>
+      <div class="clock-version"><span class="clock-dot"></span>v1.1 · LIVE</div>
+    </div>
+
     <div class="w-search-row">
       <div class="w-search">
         <span style="font-size:16px">🔍</span>
@@ -340,6 +356,19 @@ const APIM_KEY  = '6a173d1681ef4edc8bec5d544c28c552';
 const H = { 'Ocp-Apim-Subscription-Key': APIM_KEY };
 
 document.getElementById('nDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ── LIVE CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  const dateStr = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('clockTime').innerHTML = `${h}:${m}<span class="clock-seconds">:${s}</span>`;
+  document.getElementById('clockDate').textContent = dateStr;
+}
+updateClock();
+setInterval(updateClock, 1000);
 
 // ── PANEL TOGGLE ──
 let currentPanel = 'weather';
