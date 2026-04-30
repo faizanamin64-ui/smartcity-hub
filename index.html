@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartCity Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; background: #0a0a0a; }
+
+/* ── TOGGLE BAR ── */
+.toggle-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 14px 20px;
+  pointer-events: none;
+}
+
+.toggle-pill {
+  display: flex;
+  background: rgba(10,10,15,0.6);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 100px;
+  padding: 4px;
+  gap: 3px;
+  backdrop-filter: blur(24px);
+  pointer-events: all;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.t-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px;
+  border-radius: 100px;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.45);
+  background: transparent;
+}
+
+.t-btn .t-icon { font-size: 15px; transition: transform 0.3s; }
+
+.t-btn.active {
+  color: white;
+  background: rgba(255,255,255,0.13);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+.t-btn.active .t-icon { transform: scale(1.15); }
+
+/* News active has a different color to match newspaper theme */
+.t-btn.news-on {
+  color: #111;
+  background: white;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+.t-btn.news-on .t-icon { transform: scale(1.15); }
+
+/* ── PANELS ── */
+.panel {
+  position: fixed;
+  inset: 0;
+  transition: transform 0.55s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+  will-change: transform, opacity;
+}
+
+.panel.slide-out-left {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.panel.slide-out-right {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════
+   WEATHER PANEL
+═══════════════════════════ */
+.weather-panel {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sky-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(160deg,#12102a 0%,#1e1640 40%,#121e38 100%);
+  z-index: 0;
+  transition: background 2s ease;
+}
+
+#cloudCanvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 1; pointer-events: none;
+}
+
+.rain-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; display: none; }
+.raindrop { position: absolute; width: 1.5px; background: linear-gradient(to bottom,transparent,rgba(180,210,255,0.75)); animation: rain var(--dur,0.8s) linear infinite; animation-delay: var(--delay,0s); top: -30px; left: var(--left,50%); }
+@keyframes rain { 0%{transform:translateY(0) rotate(12deg);opacity:0}8%{opacity:1}92%{opacity:0.7}100%{transform:translateY(110vh) rotate(12deg);opacity:0} }
+
+.snow-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; display: none; overflow: hidden; }
+.snowflake { position: absolute; color: rgba(255,255,255,0.85); font-size: var(--size,14px); top: -30px; left: var(--left,50%); animation: snowfall var(--dur,6s) linear infinite; animation-delay: var(--delay,0s); text-shadow: 0 0 6px rgba(200,230,255,0.9); }
+@keyframes snowfall { 0%{transform:translateY(-30px) rotate(0deg) translateX(0);opacity:0}10%{opacity:1}50%{transform:translateY(50vh) rotate(180deg) translateX(20px)}90%{opacity:0.9}100%{transform:translateY(110vh) rotate(360deg) translateX(-10px);opacity:0} }
+
+.lightning-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; display: none; }
+.lflash { position: absolute; inset: 0; background: rgba(220,230,255,0.2); animation: lflash 6s ease-in-out infinite; animation-delay: var(--d,0s); opacity: 0; }
+@keyframes lflash { 0%,82%,100%{opacity:0}84%,88%{opacity:1}86%,90%{opacity:0}92%{opacity:0.5}94%{opacity:0} }
+
+.sun-wrap { position: absolute; top: 12%; right: 14%; z-index: 2; display: none; pointer-events: none; }
+.sun-core { width: 130px; height: 130px; border-radius: 50%; background: radial-gradient(circle at 40% 40%,rgba(255,230,80,1) 0%,rgba(255,170,30,0.8) 50%,transparent 75%); box-shadow: 0 0 40px 20px rgba(255,200,40,0.2),0 0 80px 40px rgba(255,180,20,0.1); animation: sunGlow 4s ease-in-out infinite; }
+@keyframes sunGlow { 0%,100%{transform:scale(1)}50%{transform:scale(1.06)} }
+.sun-rays { position: absolute; inset: -50px; border-radius: 50%; animation: spinRays 25s linear infinite; background: repeating-conic-gradient(rgba(255,200,50,0.07) 0deg 4deg,transparent 4deg 8deg); }
+@keyframes spinRays { to{transform:rotate(360deg)} }
+
+.mist-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; display: none; }
+.mist-band { position: absolute; width: 140%; height: 50px; left: -20%; background: rgba(200,210,230,0.07); filter: blur(18px); border-radius: 50%; animation: mistMove var(--dur,15s) ease-in-out infinite; animation-delay: var(--d,0s); }
+@keyframes mistMove { 0%,100%{transform:translateX(0) scaleX(1);opacity:0.6}50%{transform:translateX(25px) scaleX(1.04);opacity:1} }
+
+.weather-content { position: relative; z-index: 10; display: flex; flex-direction: column; height: 100%; padding: 80px 48px 32px; max-width: 700px; margin: 0 auto; width: 100%; }
+
+.w-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: auto;
+}
+
+.w-search {
+  display: flex; align-items: center;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 100px;
+  padding: 10px 20px; gap: 10px;
+  backdrop-filter: blur(12px);
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.w-search:focus-within { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.3); }
+.w-search input { background: transparent; border: none; outline: none; color: white; font-family: 'Inter',sans-serif; font-size: 14px; width: 100%; }
+.w-search input::placeholder { color: rgba(255,255,255,0.4); }
+.w-search-btn { background: transparent; border: none; cursor: pointer; color: rgba(255,255,255,0.6); font-size: 16px; padding: 0; flex-shrink: 0; }
+.w-search-btn:hover { color: white; }
+
+#weatherMain { margin-top: auto; }
+
+.w-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 100px; padding: 6px 16px; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; margin-bottom: 20px; backdrop-filter: blur(8px); }
+
+.w-big-temp { font-family: 'Playfair Display',serif; font-size: 140px; font-weight: 900; color: white; line-height: 1; letter-spacing: -8px; text-shadow: 0 0 80px rgba(180,200,255,0.2); }
+.w-big-temp sup { font-size: 48px; vertical-align: top; margin-top: 28px; letter-spacing: 0; font-weight: 400; }
+
+.w-temp-emoji-row { display: flex; align-items: flex-end; gap: 24px; margin-bottom: 10px; }
+.w-emoji-lg { font-size: 64px; margin-bottom: 16px; filter: drop-shadow(0 0 20px rgba(220,230,255,0.5)); animation: efloat 4s ease-in-out infinite; }
+@keyframes efloat { 0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)} }
+
+.w-city-name { font-family: 'Playfair Display',serif; font-size: 42px; font-weight: 700; color: white; letter-spacing: -1px; }
+.w-country { font-size: 22px; color: rgba(255,255,255,0.4); margin-left: 14px; }
+.w-datetime { font-size: 13px; color: rgba(255,255,255,0.4); font-weight: 300; margin: 6px 0 28px; }
+.w-divider { width: 100%; height: 1px; background: linear-gradient(90deg,rgba(255,255,255,0.2),transparent); margin-bottom: 22px; }
+.w-details-label { font-size: 10px; color: rgba(255,255,255,0.35); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; margin-bottom: 14px; }
+.w-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.w-stat { display: flex; flex-direction: column; gap: 6px; padding: 14px 18px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; backdrop-filter: blur(8px); }
+.w-stat-label { font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.w-stat-val { font-family: 'Space Mono',monospace; font-size: 16px; color: white; font-weight: 700; }
+
+.w-cities { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+.w-chip { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.11); border-radius: 100px; padding: 7px 16px; font-size: 13px; color: rgba(255,255,255,0.55); cursor: pointer; transition: all 0.2s; backdrop-filter: blur(8px); }
+.w-chip:hover { background: rgba(255,255,255,0.14); color: white; transform: translateY(-1px); }
+.w-ts { font-family: 'Space Mono',monospace; font-size: 10px; color: rgba(255,255,255,0.22); margin-top: 12px; }
+
+.w-loading { display: flex; align-items: center; justify-content: center; padding: 80px; flex-direction: column; gap: 16px; }
+.spinner { width: 36px; height: 36px; border: 2px solid rgba(255,255,255,0.15); border-top-color: rgba(255,255,255,0.7); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.w-loading p { font-size: 13px; color: rgba(255,255,255,0.4); font-weight: 300; }
+
+/* ═══════════════════════════
+   NEWS PANEL
+═══════════════════════════ */
+.news-panel {
+  background: #f7f4ef;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.news-panel::before { content: ''; position: absolute; inset: 0; background-image: repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(0,0,0,0.018) 27px,rgba(0,0,0,0.018) 28px); pointer-events: none; z-index: 0; }
+
+.news-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+.n-masthead { background: white; border-bottom: 3px solid #111; padding: 60px 48px 12px; flex-shrink: 0; }
+.n-top-row { display: flex; align-items: baseline; justify-content: space-between; }
+.n-date { font-size: 12px; color: #777; letter-spacing: 0.04em; }
+.n-title { font-family: 'Playfair Display',serif; font-size: 36px; font-weight: 900; color: #111; letter-spacing: -1px; line-height: 1; text-align: center; flex: 1; }
+.n-powered { font-size: 10px; color: #aaa; text-align: right; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.n-cats { display: flex; background: white; border-bottom: 1px solid #ddd; overflow-x: auto; flex-shrink: 0; }
+.n-cats::-webkit-scrollbar { display: none; }
+.n-cat { padding: 10px 20px; font-size: 11px; font-weight: 700; color: #666; cursor: pointer; border: none; background: transparent; font-family: 'Inter',sans-serif; letter-spacing: 0.09em; text-transform: uppercase; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; white-space: nowrap; }
+.n-cat:hover { color: #111; }
+.n-cat.active { color: #111; border-bottom-color: #111; }
+
+.n-body { flex: 1; overflow-y: auto; padding: 24px 48px 32px; max-width: 900px; margin: 0 auto; width: 100%; }
+.n-body::-webkit-scrollbar { width: 3px; }
+.n-body::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+/* Featured article big style */
+.n-featured { border-bottom: 2px solid #111; padding-bottom: 24px; margin-bottom: 24px; display: flex; gap: 24px; text-decoration: none; color: inherit; cursor: pointer; transition: opacity 0.2s; }
+.n-featured:hover { opacity: 0.78; }
+.n-feat-badge { font-size: 10px; font-weight: 700; color: #c0392b; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+.n-feat-badge::after { content: ''; flex: 1; height: 1px; background: rgba(192,57,43,0.25); }
+.n-feat-title { font-family: 'Playfair Display',serif; font-size: 26px; font-weight: 900; color: #111; line-height: 1.2; margin-bottom: 10px; letter-spacing: -0.3px; }
+.n-feat-desc { font-size: 14px; color: #666; line-height: 1.65; font-weight: 300; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 10px; }
+.n-feat-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #999; }
+.n-feat-src { font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; }
+.n-feat-img { width: 140px; height: 140px; border-radius: 8px; background: linear-gradient(135deg,#2c3e50,#4a6274); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 48px; }
+
+.n-sec-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.n-sec-label { font-size: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.15em; flex-shrink: 0; }
+.n-sec-rule { flex: 1; height: 1px; background: #111; }
+
+.n-articles { display: flex; flex-direction: column; }
+.n-article { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid #e5e0d8; text-decoration: none; color: inherit; transition: all 0.15s; }
+.n-article:hover { padding-left: 8px; background: rgba(0,0,0,0.02); margin: 0 -8px; padding-right: 8px; border-radius: 4px; }
+.n-art-num { font-family: 'Playfair Display',serif; font-size: 28px; font-weight: 900; color: #e5e0d8; flex-shrink: 0; line-height: 1; width: 32px; text-align: center; }
+.n-art-src { font-size: 10px; font-weight: 700; color: #c0392b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px; }
+.n-art-title { font-family: 'Playfair Display',serif; font-size: 16px; font-weight: 700; color: #111; line-height: 1.35; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.n-art-time { font-size: 11px; color: #bbb; }
+
+.n-loading { display: flex; align-items: center; justify-content: center; padding: 64px; flex-direction: column; gap: 16px; }
+.spinner-dark { width: 30px; height: 30px; border: 2px solid #eee; border-top-color: #333; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.n-loading p { font-size: 13px; color: #aaa; }
+</style>
+</head>
+<body>
+
+<!-- Toggle bar -->
+<div class="toggle-bar">
+  <div class="toggle-pill">
+    <button class="t-btn active" id="btnWeather" onclick="showPanel('weather')">
+      <span class="t-icon">⛅</span> Weather
+    </button>
+    <button class="t-btn" id="btnNews" onclick="showPanel('news')">
+      <span class="t-icon">📰</span> Headlines
+    </button>
+  </div>
+</div>
+
+<!-- Weather Panel -->
+<div class="panel weather-panel" id="panelWeather">
+  <div class="sky-bg" id="skyBg"></div>
+  <canvas id="cloudCanvas"></canvas>
+  <div class="rain-layer" id="rainLayer"></div>
+  <div class="snow-layer" id="snowLayer"></div>
+  <div class="lightning-layer" id="lightningLayer">
+    <div class="lflash" style="--d:0s"></div>
+    <div class="lflash" style="--d:2s"></div>
+    <div class="lflash" style="--d:8s"></div>
+  </div>
+  <div class="sun-wrap" id="sunWrap">
+    <div class="sun-rays"></div>
+    <div class="sun-core"></div>
+  </div>
+  <div class="mist-layer" id="mistLayer">
+    <div class="mist-band" style="top:18%;--dur:11s;--d:0s"></div>
+    <div class="mist-band" style="top:36%;--dur:17s;--d:3s"></div>
+    <div class="mist-band" style="top:55%;--dur:13s;--d:6s"></div>
+    <div class="mist-band" style="top:72%;--dur:19s;--d:1.5s"></div>
+  </div>
+
+  <div class="weather-content">
+    <div class="w-search-row">
+      <div class="w-search">
+        <span style="font-size:16px">🔍</span>
+        <input type="text" id="cityInput" placeholder="Search any city in the world..." value="Houston" />
+        <button class="w-search-btn" onclick="loadWeather()">→</button>
+      </div>
+    </div>
+
+    <div id="weatherMain">
+      <div class="w-loading"><div class="spinner"></div><p>Loading weather...</p></div>
+    </div>
+
+    <div class="w-cities">
+      <span class="w-chip" onclick="setCity('Houston')">🤠 Houston</span>
+      <span class="w-chip" onclick="setCity('New York')">🗽 New York</span>
+      <span class="w-chip" onclick="setCity('London')">🎡 London</span>
+      <span class="w-chip" onclick="setCity('Tokyo')">🗼 Tokyo</span>
+      <span class="w-chip" onclick="setCity('Miami')">🌊 Miami</span>
+      <span class="w-chip" onclick="setCity('Chicago')">🌬 Chicago</span>
+      <span class="w-chip" onclick="setCity('Dubai')">🏙 Dubai</span>
+      <span class="w-chip" onclick="setCity('Sydney')">🦘 Sydney</span>
+    </div>
+  </div>
+</div>
+
+<!-- News Panel -->
+<div class="panel news-panel slide-out-right" id="panelNews">
+  <div class="news-content">
+    <div class="n-masthead">
+      <div class="n-top-row">
+        <div class="n-date" id="nDate"></div>
+        <div class="n-title">World Headlines</div>
+        <div class="n-powered">GNews · Azure APIM</div>
+      </div>
+    </div>
+    <div class="n-cats">
+      <button class="n-cat active" onclick="switchCat('technology',this)">Tech</button>
+      <button class="n-cat" onclick="switchCat('business',this)">Business</button>
+      <button class="n-cat" onclick="switchCat('health',this)">Health</button>
+      <button class="n-cat" onclick="switchCat('sports',this)">Sports</button>
+      <button class="n-cat" onclick="switchCat('world',this)">World</button>
+      <button class="n-cat" onclick="switchCat('entertainment',this)">Culture</button>
+    </div>
+    <div class="n-body" id="newsBody">
+      <div class="n-loading"><div class="spinner-dark"></div><p>Loading headlines...</p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const APIM_BASE = 'https://smartcity-apim-pasha.azure-api.net/smartcity-functions-pasha';
+const APIM_KEY  = '6a173d1681ef4edc8bec5d544c28c552';
+const H = { 'Ocp-Apim-Subscription-Key': APIM_KEY };
+
+document.getElementById('nDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ── PANEL TOGGLE ──
+let currentPanel = 'weather';
+
+function showPanel(panel) {
+  currentPanel = panel;
+  const pw = document.getElementById('panelWeather');
+  const pn = document.getElementById('panelNews');
+  const bw = document.getElementById('btnWeather');
+  const bn = document.getElementById('btnNews');
+
+  if (panel === 'weather') {
+    pw.classList.remove('slide-out-left','slide-out-right');
+    pn.classList.remove('slide-out-left');
+    pn.classList.add('slide-out-right');
+    bw.classList.add('active');
+    bw.classList.remove('news-on');
+    bn.classList.remove('active','news-on');
+  } else {
+    pn.classList.remove('slide-out-left','slide-out-right');
+    pw.classList.remove('slide-out-right');
+    pw.classList.add('slide-out-left');
+    bn.classList.add('active','news-on');
+    bw.classList.remove('active');
+  }
+}
+
+// ── CANVAS CLOUDS ──
+const canvas = document.getElementById('cloudCanvas');
+const ctx    = canvas.getContext('2d');
+let cr=255, cg=255, cb=255, ca=0.22;
+
+function resizeCanvas(){ canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight; }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const clouds = [
+  {x:-300,y:0.07,spd:0.45,w:260,h:82},
+  {x:80,  y:0.17,spd:0.28,w:340,h:100},
+  {x:-80, y:0.31,spd:0.38,w:210,h:68},
+  {x:-240,y:0.47,spd:0.22,w:290,h:90},
+  {x:40,  y:0.62,spd:0.33,w:230,h:72},
+  {x:-160,y:0.76,spd:0.50,w:270,h:84},
+];
+
+function puff(cx,cy,rx,ry) {
+  ctx.beginPath();
+  ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+  const g = ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(rx,ry));
+  g.addColorStop(0,   `rgba(${cr},${cg},${cb},${ca})`);
+  g.addColorStop(0.55,`rgba(${cr},${cg},${cb},${ca*0.5})`);
+  g.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = g;
+  ctx.fill();
+}
+
+function drawCloud(x,y,w,h) {
+  if (ca <= 0.01) return;
+  ctx.save();
+  puff(x+w*0.50, y+h*0.68, w*0.48, h*0.42);
+  puff(x+w*0.25, y+h*0.52, w*0.24, h*0.52);
+  puff(x+w*0.50, y+h*0.32, w*0.30, h*0.58);
+  puff(x+w*0.74, y+h*0.48, w*0.25, h*0.50);
+  puff(x+w*0.62, y+h*0.28, w*0.20, h*0.44);
+  puff(x+w*0.38, y+h*0.28, w*0.18, h*0.40);
+  ctx.restore();
+}
+
+function animateClouds() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const W=canvas.width, HH=canvas.height;
+  clouds.forEach(c => {
+    c.x += c.spd;
+    if (c.x > W+80) c.x = -c.w-80;
+    drawCloud(c.x, c.y*HH, c.w, c.h);
+  });
+  requestAnimationFrame(animateClouds);
+}
+animateClouds();
+
+function setCloud(r,g,b,a) { cr=r; cg=g; cb=b; ca=a; }
+
+function spawnRain(count,durMin,durRange,hMin,hRange) {
+  const rl=document.getElementById('rainLayer');
+  rl.style.display='block'; rl.innerHTML='';
+  for(let i=0;i<count;i++){
+    const d=document.createElement('div');
+    d.className='raindrop';
+    d.style.cssText=`left:${Math.random()*100}%;--dur:${durMin+Math.random()*durRange}s;--delay:${Math.random()*2}s;height:${hMin+Math.random()*hRange}px;opacity:${0.4+Math.random()*0.45}`;
+    rl.appendChild(d);
+  }
+}
+
+function spawnSnow(count) {
+  const sl=document.getElementById('snowLayer');
+  sl.style.display='block'; sl.innerHTML='';
+  const fl=['❄','❅','❆','·','*','°','•'];
+  for(let i=0;i<count;i++){
+    const f=document.createElement('div');
+    f.className='snowflake';
+    f.textContent=fl[Math.floor(Math.random()*fl.length)];
+    f.style.cssText=`left:${Math.random()*100}%;--dur:${5+Math.random()*7}s;--delay:${Math.random()*7}s;--size:${9+Math.random()*18}px;opacity:${0.5+Math.random()*0.5}`;
+    sl.appendChild(f);
+  }
+}
+
+function updateSky(desc) {
+  const d=desc.toLowerCase();
+  const sky=document.getElementById('skyBg');
+  document.getElementById('rainLayer').style.display='none';
+  document.getElementById('snowLayer').style.display='none';
+  document.getElementById('lightningLayer').style.display='none';
+  document.getElementById('sunWrap').style.display='none';
+  document.getElementById('mistLayer').style.display='none';
+
+  if(d.includes('thunder')){
+    sky.style.background='linear-gradient(160deg,#060608 0%,#0c0808 40%,#060606 100%)';
+    setCloud(50,50,65,0.65);
+    document.getElementById('lightningLayer').style.display='block';
+    spawnRain(130,0.3,0.4,22,14);
+  } else if(d.includes('rain')||d.includes('drizzle')){
+    sky.style.background='linear-gradient(160deg,#0b1320 0%,#131e2c 40%,#090f18 100%)';
+    setCloud(110,130,160,0.55);
+    spawnRain(d.includes('drizzle')?55:90,0.45,0.55,14,14);
+  } else if(d.includes('snow')){
+    sky.style.background='linear-gradient(160deg,#121826 0%,#1c2436 40%,#0e1420 100%)';
+    setCloud(210,220,235,0.40);
+    spawnSnow(75);
+  } else if(d.includes('clear')||d.includes('sunny')){
+    sky.style.background='linear-gradient(160deg,#050d1c 0%,#091c34 40%,#060e20 100%)';
+    setCloud(255,255,255,0.06);
+    document.getElementById('sunWrap').style.display='block';
+  } else if(d.includes('mist')||d.includes('fog')||d.includes('haze')){
+    sky.style.background='linear-gradient(160deg,#12161e 0%,#1a1e28 40%,#12161e 100%)';
+    setCloud(185,195,215,0.38);
+    document.getElementById('mistLayer').style.display='block';
+  } else {
+    sky.style.background='linear-gradient(160deg,#12102a 0%,#1e1640 40%,#121e38 100%)';
+    setCloud(255,255,255,0.22);
+  }
+}
+
+function getEmoji(desc) {
+  const d=desc.toLowerCase();
+  if(d.includes('thunder')) return '⛈';
+  if(d.includes('rain')||d.includes('drizzle')) return '🌧';
+  if(d.includes('snow')) return '❄️';
+  if(d.includes('cloud')) return '☁️';
+  if(d.includes('mist')||d.includes('fog')) return '🌫';
+  if(d.includes('clear')) return '🌙';
+  return '⛅';
+}
+
+function timeAgo(d) {
+  const diff=Date.now()-new Date(d).getTime();
+  const h=Math.floor(diff/3600000), m=Math.floor(diff/60000);
+  if(h>24) return Math.floor(h/24)+'d ago';
+  if(h>0) return h+'h ago';
+  if(m>0) return m+'m ago';
+  return 'just now';
+}
+
+function artEmoji(t) {
+  t=t.toLowerCase();
+  if(t.includes('tech')||t.includes('ai')) return '💻';
+  if(t.includes('health')||t.includes('medic')) return '🏥';
+  if(t.includes('sport')||t.includes('game')) return '⚽';
+  if(t.includes('market')||t.includes('stock')) return '📈';
+  if(t.includes('space')||t.includes('science')) return '🚀';
+  const e=['📰','🌍','💡','🎯','🔬','📊','🌐'];
+  return e[Math.floor(Math.random()*e.length)];
+}
+
+function setCity(city) { document.getElementById('cityInput').value=city; loadWeather(); }
+function switchCat(cat,btn) { document.querySelectorAll('.n-cat').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); loadNews(cat); }
+
+async function loadWeather() {
+  const city=document.getElementById('cityInput').value||'Houston';
+  const main=document.getElementById('weatherMain');
+  main.innerHTML=`<div class="w-loading"><div class="spinner"></div><p>Loading ${city}...</p></div>`;
+  try {
+    const res=await fetch(`${APIM_BASE}/GetWeather?city=${encodeURIComponent(city)}`,{headers:H});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const d=await res.json();
+    updateSky(d.description);
+    main.innerHTML=`
+      <div class="w-badge">${getEmoji(d.description)} &nbsp; ${d.description}</div>
+      <div class="w-temp-emoji-row">
+        <div class="w-big-temp">${d.temperature.replace('°F','')}<sup>°F</sup></div>
+        <div class="w-emoji-lg">${getEmoji(d.description)}</div>
+      </div>
+      <div>
+        <span class="w-city-name">${d.city}</span>
+        ${d.country?`<span class="w-country">${d.country}</span>`:''}
+      </div>
+      <div class="w-datetime">${new Date(d.local_time).toLocaleString('en-US',{weekday:'long',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})}</div>
+      <div class="w-divider"></div>
+      <div class="w-details-label">Weather Details</div>
+      <div class="w-grid">
+        <div class="w-stat"><div class="w-stat-label">Feels Like</div><div class="w-stat-val">${d.feels_like}</div></div>
+        <div class="w-stat"><div class="w-stat-label">Humidity</div><div class="w-stat-val">${d.humidity}</div></div>
+        <div class="w-stat"><div class="w-stat-label">Wind Speed</div><div class="w-stat-val">${d.wind_speed}</div></div>
+      </div>
+      <div class="w-ts">Updated ${new Date(d.timestamp).toLocaleTimeString()} · via Azure APIM</div>`;
+  } catch(e) {
+    main.innerHTML=`<div class="w-loading"><p>Could not load: ${e.message}</p></div>`;
+  }
+}
+
+async function loadNews(cat='technology') {
+  const body=document.getElementById('newsBody');
+  body.innerHTML=`<div class="n-loading"><div class="spinner-dark"></div><p>Loading ${cat}...</p></div>`;
+  try {
+    const res=await fetch(`${APIM_BASE}/GetNews?category=${cat}`,{headers:H});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const d=await res.json();
+    if(!d.articles||!d.articles.length) throw new Error('No articles');
+    const [top,...rest]=d.articles;
+    body.innerHTML=`
+      <a class="n-featured" href="${top.url}" target="_blank">
+        <div style="flex:1">
+          <div class="n-feat-badge">Featured</div>
+          <div class="n-feat-title">${top.title}</div>
+          <div class="n-feat-desc">${top.description||''}</div>
+          <div class="n-feat-meta"><span class="n-feat-src">${top.source}</span><span>·</span><span>${timeAgo(top.publishedAt)}</span></div>
+        </div>
+        <div class="n-feat-img">${artEmoji(top.title)}</div>
+      </a>
+      <div class="n-sec-head"><div class="n-sec-label">More Headlines</div><div class="n-sec-rule"></div></div>
+      <div class="n-articles">
+        ${rest.map((a,i)=>`
+          <a class="n-article" href="${a.url}" target="_blank">
+            <div class="n-art-num">0${i+2}</div>
+            <div><div class="n-art-src">${a.source}</div><div class="n-art-title">${a.title}</div><div class="n-art-time">${timeAgo(a.publishedAt)}</div></div>
+          </a>`).join('')}
+      </div>`;
+  } catch(e) {
+    body.innerHTML=`<div class="n-loading"><p style="color:#999">Could not load: ${e.message}</p></div>`;
+  }
+}
+
+document.getElementById('cityInput').addEventListener('keydown',e=>{ if(e.key==='Enter') loadWeather(); });
+loadWeather();
+loadNews();
+</script>
+</body>
+</html>
